@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>スキャン買い物かご</title>
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="買い物かご">
+<style>
+:root{
+  --bg:#f7f3ec; --card:#fffdf8; --ink:#22303c; --sub:#5c6a75;
+  --green:#1f7a4d; --green-soft:#e2f1e8; --accent:#e8833a;
+  --line:#ddd3c2; --warn:#d97706; --over:#c62828; --over-bg:#fdecec;
+  --bar-bg:#e7dfd0; --tab-bg:#fffdf8; --shadow:0 2px 10px rgba(34,48,60,.12);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#171c20; --card:#232a2f; --ink:#eef2f0; --sub:#a7b3ba;
+    --green:#3cb371; --green-soft:#1d2f26; --accent:#f0954d;
+    --line:#3a444b; --warn:#f0a13c; --over:#ff7a72; --over-bg:#3a2222;
+    --bar-bg:#333c42; --tab-bg:#20262b; --shadow:0 2px 10px rgba(0,0,0,.5);
+  }
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  padding-bottom:76px;
+}
+button{font-family:inherit; cursor:pointer;}
+input,select{font-family:inherit;}
+
+/* ===== ヘッダー（固定） ===== */
+header{
+  position:sticky; top:0; z-index:30;
+  background:var(--card); border-bottom:2px solid var(--line);
+  padding:10px 14px 10px; box-shadow:var(--shadow);
+}
+.head-top{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
+.app-name{font-size:17px; font-weight:700;}
+.app-name .basket{font-size:20px;}
+.total-big{font-size:34px; font-weight:800; line-height:1.1; color:var(--green);}
+.total-big small{font-size:15px; font-weight:600; color:var(--sub);}
+.head-sub{display:flex; gap:14px; font-size:14px; color:var(--sub); margin-top:2px; flex-wrap:wrap;}
+.head-sub b{color:var(--ink);}
+.budget-area{margin-top:8px;}
+.budget-bar-wrap{background:var(--bar-bg); border-radius:999px; height:16px; overflow:hidden;}
+.budget-bar{height:100%; width:0%; background:var(--green); border-radius:999px; transition:width .25s;}
+.budget-bar.warn{background:var(--warn);}
+.budget-bar.over{background:var(--over);}
+.budget-text{font-size:13px; margin-top:3px; color:var(--sub); display:flex; justify-content:space-between; gap:8px;}
+.budget-text .over-msg{color:var(--over); font-weight:800;}
+.budget-text .warn-msg{color:var(--warn); font-weight:700;}
+
+/* ===== 共通 ===== */
+main{padding:12px 12px 8px; max-width:640px; margin:0 auto;}
+section.tab{display:none;}
+section.tab.active{display:block;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; margin-bottom:12px; box-shadow:var(--shadow);}
+.card h2{font-size:16px; margin:0 0 8px;}
+.btn{
+  border:none; border-radius:12px; padding:12px 16px; font-size:16px; font-weight:700;
+  background:var(--green); color:#fff; min-height:48px;
+}
+.btn.sub{background:var(--green-soft); color:var(--green);}
+.btn.ghost{background:transparent; color:var(--sub); border:1px solid var(--line);}
+.btn.danger{background:var(--over); color:#fff;}
+.btn.accent{background:var(--accent); color:#fff;}
+.btn:disabled{opacity:.45;}
+.btn-row{display:flex; gap:8px; flex-wrap:wrap;}
+.btn-row .btn{flex:1;}
+.small-btn{border:1px solid var(--line); background:var(--card); color:var(--ink); border-radius:10px; padding:8px 10px; font-size:14px; font-weight:600; min-height:40px;}
+.msg{font-size:14px; min-height:20px; margin:6px 0; color:var(--sub);}
+.msg.error{color:var(--over); font-weight:700;}
+.msg.ok{color:var(--green); font-weight:700;}
+details.howto{background:var(--green-soft); border-radius:12px; padding:10px 12px; margin-bottom:12px;}
+details.howto summary{font-weight:700; font-size:15px; cursor:pointer;}
+details.howto div{font-size:14px; line-height:1.65; margin-top:6px;}
+
+/* スキャン */
+#scanVideo{width:100%; border-radius:12px; background:#000; display:none;}
+.scan-note{font-size:13px; color:var(--sub); line-height:1.6;}
+
+/* キーパッド */
+.jan-display{
+  font-size:26px; font-weight:800; letter-spacing:2px; text-align:center;
+  background:var(--bg); border:2px solid var(--line); border-radius:12px;
+  padding:10px; min-height:58px; word-break:break-all;
+}
+.keypad{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px;}
+.keypad button{
+  font-size:24px; font-weight:700; padding:14px 0; border-radius:12px;
+  border:1px solid var(--line); background:var(--card); color:var(--ink); min-height:58px;
+}
+.keypad button:active{background:var(--green-soft);}
+
+/* カゴ行 */
+.line-item{border-bottom:1px solid var(--line); padding:10px 0;}
+.line-item:last-child{border-bottom:none;}
+.li-top{display:flex; justify-content:space-between; gap:8px; align-items:flex-start;}
+.li-name{font-size:16px; font-weight:700;}
+.li-meta{font-size:13px; color:var(--sub); margin-top:2px; line-height:1.5;}
+.li-total{font-size:19px; font-weight:800; white-space:nowrap;}
+.li-actions{display:flex; align-items:center; gap:6px; margin-top:8px; flex-wrap:wrap;}
+.qty-btn{width:44px; height:44px; border-radius:50%; border:2px solid var(--green); background:var(--card); color:var(--green); font-size:22px; font-weight:800; line-height:1;}
+.qty-num{font-size:18px; font-weight:800; min-width:34px; text-align:center;}
+.empty-note{color:var(--sub); font-size:15px; text-align:center; padding:14px 0;}
+
+/* フォーム */
+.f-row{margin-bottom:10px;}
+.f-row label{display:block; font-size:13px; font-weight:700; color:var(--sub); margin-bottom:4px;}
+.f-row input,.f-row select{
+  width:100%; font-size:17px; padding:11px; border:1px solid var(--line);
+  border-radius:10px; background:var(--bg); color:var(--ink);
+}
+.f-2col{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+
+/* モーダル */
+.modal-bg{
+  position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:50;
+  display:none; align-items:flex-end; justify-content:center;
+}
+.modal-bg.open{display:flex;}
+.modal{
+  background:var(--card); color:var(--ink); width:100%; max-width:640px; max-height:88vh; overflow:auto;
+  border-radius:18px 18px 0 0; padding:16px 16px 24px;
+}
+.modal h3{margin:0 0 10px; font-size:17px;}
+
+/* リスト */
+.list-item{display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);}
+.list-item:last-child{border-bottom:none;}
+.list-item input[type=checkbox]{width:26px; height:26px; accent-color:var(--green); flex:none;}
+.list-item .li-name2{flex:1; font-size:16px;}
+.list-item.checked .li-name2{text-decoration:line-through; color:var(--sub);}
+.chip{
+  display:inline-block; border:1px solid var(--green); color:var(--green); background:var(--green-soft);
+  border-radius:999px; padding:8px 12px; font-size:14px; font-weight:600; margin:0 6px 8px 0;
+}
+
+/* 価格メモ */
+.memo-item{border-bottom:1px solid var(--line); padding:10px 0;}
+.memo-item:last-child{border-bottom:none;}
+
+/* 単価くらべ */
+.vs-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.vs-box{border:2px solid var(--line); border-radius:12px; padding:10px;}
+.vs-box.winner{border-color:var(--green); background:var(--green-soft);}
+.vs-box .unit-price{font-size:22px; font-weight:800;}
+.rank-row{display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--line); font-size:15px;}
+.rank-row:last-child{border-bottom:none;}
+
+/* フッター（Museリンク） */
+footer.muse-note{
+  max-width:640px; margin:4px auto 0; padding:10px 14px 4px;
+  font-size:13px; color:var(--sub); text-align:center; line-height:1.7;
+}
+footer.muse-note a{color:var(--green); font-weight:700;}
+
+/* 下部タブ */
+nav.tabs{
+  position:fixed; left:0; right:0; bottom:0; z-index:40;
+  background:var(--tab-bg); border-top:2px solid var(--line);
+  display:grid; grid-template-columns:repeat(4,1fr);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+nav.tabs button{
+  border:none; background:transparent; color:var(--sub);
+  font-size:13px; font-weight:700; padding:9px 2px 10px; min-height:56px;
+}
+nav.tabs button .ic{display:block; font-size:21px; line-height:1.2;}
+nav.tabs button.active{color:var(--green);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="head-top">
+    <div class="app-name"><span class="basket">🧺</span> スキャン買い物かご</div>
+    <div class="total-big"><span id="headTotal">0</span><small> 円（税込）</small></div>
+  </div>
+  <div class="head-sub">
+    <span>点数 <b id="headCount">0</b></span>
+    <span>8%対象 <b id="headTax8">0</b>円</span>
+    <span>10%対象 <b id="headTax10">0</b>円</span>
+  </div>
+  <div class="budget-area" id="budgetArea">
+    <div class="budget-bar-wrap"><div class="budget-bar" id="budgetBar"></div></div>
+    <div class="budget-text"><span id="budgetText">予算は未設定です</span><span id="budgetPct"></span></div>
+  </div>
+</header>
+
+<main>
+  <!-- ================= カゴ ================= -->
+  <section class="tab active" id="tab-cart">
+    <details class="howto">
+      <summary>📖 使い方</summary>
+      <div>
+        ① 商品のバーコードをカメラで読み取るか、下のキーパッドでJANコード（8桁または13桁）を入力してください。<br>
+        ② 初めての商品は「初回登録」が出ます。商品名と税抜価格、税率（食品などは8%、それ以外は10%）、分かれば内容量と店名を入れてください。登録した内容は「価格メモ」に残り、次回からは読み取るだけでカゴに入ります。<br>
+        ③ 価格は税抜で登録し、合計は税込で表示されます（税込単価＝税抜×税率で計算し、円未満は切り捨て）。<br>
+        ④ 予算を設定すると、上のバーで残りが分かります。80%で黄色、超えると赤くなります。<br>
+        ※ iPhoneのSafariなど、カメラでバーコードを読めない環境では、JANコードの手入力が主な使い方になります。手入力はいつでも使えます。
+      </div>
+    </details>
+
+    <div class="card">
+      <h2>📷 バーコードを読み取る</h2>
+      <video id="scanVideo" playsinline muted></video>
+      <div class="btn-row">
+        <button class="btn" id="scanBtn">スキャンを始める</button>
+      </div>
+      <div class="msg" id="scanMsg"></div>
+      <div class="scan-note">カメラが使えない機種・ブラウザでは読み取れません。その場合は下のJAN手入力をご利用ください。</div>
+    </div>
+
+    <div class="card">
+      <h2>🔢 JANコードを手入力</h2>
+      <div class="jan-display" id="janDisplay">―</div>
+      <div class="keypad" id="keypad">
+        <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+        <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+        <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+        <button data-k="C">消す</button><button data-k="0">0</button><button data-k="BS">⌫</button>
+      </div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn" id="janGoBtn">この番号で追加</button>
+      </div>
+      <div class="msg" id="janMsg"></div>
+      <div class="btn-row">
+        <button class="btn sub" id="noBarcodeBtn">バーコードなしで追加</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>💰 予算</h2>
+      <div class="btn-row" id="budgetPresets">
+        <button class="btn sub" data-budget="3000">3,000円</button>
+        <button class="btn sub" data-budget="5000">5,000円</button>
+        <button class="btn sub" data-budget="8000">8,000円</button>
+        <button class="btn sub" data-budget="10000">10,000円</button>
+      </div>
+      <div class="f-2col" style="margin-top:8px;">
+        <div class="f-row" style="margin:0;"><input type="number" id="budgetInput" inputmode="numeric" placeholder="金額を入力（円）"></div>
+        <div class="btn-row">
+          <button class="btn ghost" id="budgetSetBtn">設定</button>
+          <button class="btn ghost" id="budgetClearBtn">消去</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>🧺 カゴの中身</h2>
+      <div id="cartList"></div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn ghost" id="undoBtn">↩ 1つ前に戻す</button>
+        <button class="btn danger" id="clearCartBtn">カゴを空にする</button>
+      </div>
+      <div class="msg" id="cartMsg"></div>
+    </div>
+  </section>
+
+  <!-- ================= 買い物リスト ================= -->
+  <section class="tab" id="tab-list">
+    <div class="card">
+      <h2>📝 買い物リスト</h2>
+      <div class="f-2col">
+        <div class="f-row" style="margin:0;"><input type="text" id="listInput" placeholder="買うものを入力"></div>
+        <button class="btn" id="listAddBtn">追加</button>
+      </div>
+      <div id="shopList"></div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn sub" id="listCleanupBtn">買えたものを一括片付け</button>
+      </div>
+      <div class="msg" id="listMsg"></div>
+    </div>
+    <div class="card">
+      <h2>⚡ 価格メモからクイック追加</h2>
+      <div id="quickAdd"><span class="scan-note">価格メモに登録すると、ここからすぐリストに入れられます。</span></div>
+    </div>
+  </section>
+
+  <!-- ================= 価格メモ ================= -->
+  <section class="tab" id="tab-memo">
+    <div class="card">
+      <h2>🏷 価格メモ</h2>
+      <div class="f-row"><input type="search" id="memoSearch" placeholder="商品名・JANで検索"></div>
+      <div id="memoList"></div>
+      <div class="msg" id="memoMsg"></div>
+    </div>
+  </section>
+
+  <!-- ================= 単価くらべ ================= -->
+  <section class="tab" id="tab-compare">
+    <div class="card">
+      <h2>⚖ 単価くらべ</h2>
+      <div class="scan-note" style="margin-bottom:8px;">2つの商品を比べます。単位（g／ml／個）が同じもの同士で比べてください。価格メモの商品は税込単価で計算します。</div>
+      <div class="vs-grid">
+        <div class="vs-box" id="vsBoxA">
+          <b>A</b>
+          <div class="f-row"><label>価格メモから選ぶ</label><select id="vsSelA"></select></div>
+          <div class="f-row"><label>税込価格（円）</label><input type="number" id="vsPriceA" inputmode="numeric" placeholder="例：198"></div>
+          <div class="f-row"><label>内容量</label><input type="number" id="vsAmtA" inputmode="decimal" placeholder="例：500"></div>
+          <div class="f-row"><label>単位</label><select id="vsUnitA"><option value="g">g</option><option value="ml">ml</option><option value="個">個</option></select></div>
+          <div class="unit-price" id="vsUnitPriceA">―</div>
+        </div>
+        <div class="vs-box" id="vsBoxB">
+          <b>B</b>
+          <div class="f-row"><label>価格メモから選ぶ</label><select id="vsSelB"></select></div>
+          <div class="f-row"><label>税込価格（円）</label><input type="number" id="vsPriceB" inputmode="numeric" placeholder="例：198"></div>
+          <div class="f-row"><label>内容量</label><input type="number" id="vsAmtB" inputmode="decimal" placeholder="例：500"></div>
+          <div class="f-row"><label>単位</label><select id="vsUnitB"><option value="g">g</option><option value="ml">ml</option><option value="個">個</option></select></div>
+          <div class="unit-price" id="vsUnitPriceB">―</div>
+        </div>
+      </div>
+      <div class="msg" id="vsResult" style="font-size:16px;"></div>
+    </div>
+    <div class="card">
+      <h2>🏆 内容量つき商品の単価ランキング</h2>
+      <div id="rankList"><span class="scan-note">内容量を登録した商品が、単位ごとに安い順に並びます。</span></div>
+    </div>
+  </section>
+
+  <footer class="muse-note">
+    このアプリは Muse と一緒に作ったアプリです。<br>
+    <a href="https://muse.ai/join" target="_blank" rel="noopener">Muse を使ってみる</a>（紹介コード：84A2JY）
+  </footer>
+</main>
+
+<!-- 初回登録 / 価格メモ編集モーダル -->
+<div class="modal-bg" id="regModalBg">
+  <div class="modal">
+    <h3 id="regTitle">初回登録</h3>
+    <div class="f-row"><label>JANコード</label><input type="text" id="regJan" readonly></div>
+    <div class="f-row"><label>商品名 *</label><input type="text" id="regName" placeholder="例：牛乳 1L"></div>
+    <div class="f-2col">
+      <div class="f-row"><label>税抜価格（円）*</label><input type="number" id="regPrice" inputmode="numeric" placeholder="例：198"></div>
+      <div class="f-row"><label>税率</label><select id="regTax"><option value="8">8%（食品など）</option><option value="10">10%</option></select></div>
+    </div>
+    <div class="f-2col">
+      <div class="f-row"><label>内容量（任意）</label><input type="number" id="regAmt" inputmode="decimal" placeholder="例：1000"></div>
+      <div class="f-row"><label>単位</label><select id="regUnit"><option value="g">g</option><option value="ml">ml</option><option value="個">個</option></select></div>
+    </div>
+    <div class="f-row"><label>店名（任意）</label><input type="text" id="regStore" placeholder="例：○○スーパー"></div>
+    <div class="msg error" id="regMsg"></div>
+    <div class="btn-row">
+      <button class="btn" id="regSaveBtn">保存してカゴへ</button>
+      <button class="btn ghost" id="regCancelBtn">やめる</button>
+    </div>
+  </div>
+</div>
+
+<!-- バーコードなし追加モーダル -->
+<div class="modal-bg" id="nbModalBg">
+  <div class="modal">
+    <h3>バーコードなしで追加</h3>
+    <div class="f-row"><label>商品名 *</label><input type="text" id="nbName" placeholder="例：量り売り野菜"></div>
+    <div class="f-2col">
+      <div class="f-row"><label>税抜価格（円）*</label><input type="number" id="nbPrice" inputmode="numeric"></div>
+      <div class="f-row"><label>税率</label><select id="nbTax"><option value="8">8%（食品など）</option><option value="10">10%</option></select></div>
+    </div>
+    <div class="msg error" id="nbMsg"></div>
+    <div class="btn-row">
+      <button class="btn" id="nbSaveBtn">カゴへ追加</button>
+      <button class="btn ghost" id="nbCancelBtn">やめる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 金額を直すモーダル -->
+<div class="modal-bg" id="priceModalBg">
+  <div class="modal">
+    <h3>金額を直す（税抜）</h3>
+    <div class="f-row"><label id="priceTargetName">商品</label><input type="number" id="priceNew" inputmode="numeric"></div>
+    <div class="scan-note">JANつき商品は、価格メモの価格も一緒に直ります。</div>
+    <div class="msg error" id="priceMsg"></div>
+    <div class="btn-row">
+      <button class="btn" id="priceSaveBtn">直す</button>
+      <button class="btn ghost" id="priceCancelBtn">やめる</button>
+    </div>
+  </div>
+</div>
+
+<nav class="tabs">
+  <button data-tab="cart" class="active"><span class="ic">🧺</span>カゴ</button>
+  <button data-tab="list"><span class="ic">📝</span>買い物リスト</button>
+  <button data-tab="memo"><span class="ic">🏷</span>価格メモ</button>
+  <button data-tab="compare"><span class="ic">⚖</span>単価くらべ</button>
+</nav>
+
+<script>
+"use strict";
+/* ========= 保存（localStorage・名前空間つき） ========= */
+const NS = "scanbasket.v1.";
+function load(key, fallback){
+  try{ const v = localStorage.getItem(NS+key); return v ? JSON.parse(v) : fallback; }
+  catch(e){ return fallback; }
+}
+function save(key, val){
+  try{ localStorage.setItem(NS+key, JSON.stringify(val)); }catch(e){}
+}
+let products = load("products", {});   // JAN -> {jan,name,priceEx,tax,amount,unit,store,updatedAt}
+let cart = load("cart", []);           // [{id,jan,name,priceEx,tax,qty,amount,unit,store}] 新しい順
+let shopList = load("list", []);       // [{id,name,jan,checked}]
+let budget = load("budget", null);     // number|null
+let lastAdd = load("undo", null);      // {lineId, prevQty} 直前の追加だけ
+function persistAll(){
+  save("products", products); save("cart", cart); save("list", shopList);
+  save("budget", budget); save("undo", lastAdd);
+}
+
+/* ========= JAN検証（桁数＋チェックデジット） ========= */
+function janCheckDigit(firstDigits){
+  // firstDigits: チェックデジットを除く数字列。右端から交互に 3,1,3,1…
+  let sum = 0, w = 3;
+  for(let i = firstDigits.length - 1; i >= 0; i--){
+    sum += Number(firstDigits[i]) * w;
+    w = (w === 3) ? 1 : 3;
+  }
+  return (10 - (sum % 10)) % 10;
+}
+function validateJAN(code){
+  if(typeof code !== "string") return false;
+  if(!/^\d+$/.test(code)) return false;
+  if(code.length !== 8 && code.length !== 13) return false;
+  return janCheckDigit(code.slice(0, -1)) === Number(code[code.length - 1]);
+}
+
+/* ========= 税計算 ========= */
+function inclUnit(p){ return Math.floor(p.priceEx * (1 + p.tax / 100)); }
+function lineTotal(l){ return inclUnit(l) * l.qty; }
+function unitPricePer(priceIncl, amount, unit){
+  if(!amount || amount <= 0) return null;
+  const base = (unit === "個") ? 1 : 100;
+  return priceIncl * base / amount;
+}
+function fmt(n){ return n.toLocaleString("ja-JP"); }
+function esc(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+/* ========= DOM ========= */
+const $ = id => document.getElementById(id);
+const headTotal=$("headTotal"), headCount=$("headCount"), headTax8=$("headTax8"), headTax10=$("headTax10");
+const budgetBar=$("budgetBar"), budgetText=$("budgetText"), budgetPct=$("budgetPct");
+
+function totals(){
+  let total=0, count=0, t8=0, t10=0;
+  for(const l of cart){
+    const lt = lineTotal(l);
+    total += lt; count += l.qty;
+    if(l.tax === 8) t8 += lt; else t10 += lt;
+  }
+  return {total, count, t8, t10};
+}
+
+function renderHeader(){
+  const t = totals();
+  headTotal.textContent = fmt(t.total);
+  headCount.textContent = fmt(t.count);
+  headTax8.textContent = fmt(t.t8);
+  headTax10.textContent = fmt(t.t10);
+  budgetBar.className = "budget-bar";
+  if(budget && budget > 0){
+    const pct = Math.floor(t.total / budget * 100);
+    budgetBar.style.width = Math.min(100, pct) + "%";
+    budgetPct.textContent = pct + "%";
+    if(pct >= 100){
+      budgetBar.classList.add("over");
+      budgetText.innerHTML = "予算 " + fmt(budget) + "円 <span class='over-msg'>⚠ " + fmt(t.total - budget) + "円 超過しています</span>";
+      if(renderHeader._wasOver !== true && navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)){ try{ navigator.vibrate(200); }catch(e){} }
+      renderHeader._wasOver = true;
+    } else if(pct >= 80){
+      budgetBar.classList.add("warn");
+      budgetText.innerHTML = "予算 " + fmt(budget) + "円 <span class='warn-msg'>残り " + fmt(budget - t.total) + "円 です</span>";
+      renderHeader._wasOver = false;
+    } else {
+      budgetText.textContent = "予算 " + fmt(budget) + "円（残り " + fmt(budget - t.total) + "円）";
+      renderHeader._wasOver = false;
+    }
+  } else {
+    budgetBar.style.width = "0%";
+    budgetPct.textContent = "";
+    budgetText.textContent = "予算は未設定です";
+    renderHeader._wasOver = false;
+  }
+}
+
+/* ========= カゴ描画 ========= */
+const cartListEl = $("cartList"), cartMsg = $("cartMsg");
+function renderCart(){
+  if(cart.length === 0){
+    cartListEl.innerHTML = "<div class='empty-note'>カゴは空です。バーコードを読み取るか、JANを入力してください。</div>";
+  } else {
+    cartListEl.innerHTML = cart.map(l => {
+      const iu = inclUnit(l);
+      const meta = [
+        l.jan ? "JAN " + esc(l.jan) : "バーコードなし",
+        "税抜" + fmt(l.priceEx) + "円 → 税込" + fmt(iu) + "円（" + l.tax + "%）",
+        (l.amount ? l.amount + esc(l.unit || "") : null),
+        l.store ? esc(l.store) : null
+      ].filter(Boolean).join(" ・ ");
+      return "<div class='line-item' data-id='" + l.id + "'>" +
+        "<div class='li-top'><div><div class='li-name'>" + esc(l.name) + "</div>" +
+        "<div class='li-meta'>" + meta + "</div></div>" +
+        "<div class='li-total'>" + fmt(lineTotal(l)) + "円</div></div>" +
+        "<div class='li-actions'>" +
+          "<button class='qty-btn' data-act='dec'>−</button>" +
+          "<span class='qty-num'>" + l.qty + "</span>" +
+          "<button class='qty-btn' data-act='inc'>＋</button>" +
+          "<button class='small-btn' data-act='price'>金額を直す</button>" +
+          "<button class='small-btn' data-act='del'>削除</button>" +
+        "</div></div>";
+    }).join("");
+  }
+  $("undoBtn").disabled = !lastAdd;
+  renderHeader();
+}
+cartListEl.addEventListener("click", e => {
+  const btn = e.target.closest("button[data-act]");
+  if(!btn) return;
+  const itemEl = e.target.closest(".line-item");
+  const line = cart.find(l => String(l.id) === itemEl.dataset.id);
+  if(!line) return;
+  const act = btn.dataset.act;
+  if(act === "inc"){ line.qty += 1; }
+  if(act === "dec"){ line.qty -= 1; if(line.qty <= 0) cart = cart.filter(l => l !== line); }
+  if(act === "del"){ cart = cart.filter(l => l !== line); }
+  if(act === "price"){ openPriceModal(line); persistAll(); renderCart(); renderMemo(); return; }
+  persistAll(); renderCart();
+});
+
+/* ========= カゴへの追加（マージ・undo・リスト自動チェック） ========= */
+let idSeq = Date.now();
+function nextId(){ return ++idSeq; }
+function autoCheckList(line){
+  let changed = false;
+  for(const item of shopList){
+    if(item.checked) continue;
+    if((line.jan && item.jan && item.jan === line.jan) || item.name === line.name){
+      item.checked = true; changed = true;
+    }
+  }
+  if(changed) renderList();
+}
+function addToCart(src, qty){
+  qty = qty || 1;
+  let line = null, prevQty = 0;
+  if(src.jan){
+    line = cart.find(l => l.jan === src.jan);
+  }
+  if(line){
+    prevQty = line.qty;
+    line.qty += qty;
+    // 新しい順を保つため先頭へ
+    cart = [line].concat(cart.filter(l => l !== line));
+  } else {
+    line = {
+      id: nextId(), jan: src.jan || null, name: src.name,
+      priceEx: src.priceEx, tax: src.tax, qty: qty,
+      amount: src.amount || null, unit: src.unit || null, store: src.store || ""
+    };
+    cart.unshift(line);
+  }
+  lastAdd = {lineId: line.id, prevQty: prevQty};
+  autoCheckList(line);
+  persistAll(); renderCart();
+  cartMsg.className = "msg ok";
+  cartMsg.textContent = "「" + line.name + "」をカゴに入れました（" + line.qty + "点）";
+}
+$("undoBtn").addEventListener("click", () => {
+  if(!lastAdd) return;
+  const line = cart.find(l => l.id === lastAdd.lineId);
+  if(line){
+    if(lastAdd.prevQty <= 0){ cart = cart.filter(l => l !== line); }
+    else { line.qty = lastAdd.prevQty; }
+  }
+  lastAdd = null;
+  persistAll(); renderCart();
+  cartMsg.className = "msg";
+  cartMsg.textContent = "直前の追加を取り消しました。";
+});
+$("clearCartBtn").addEventListener("click", () => {
+  if(cart.length === 0) return;
+  if(!confirm("カゴの中身をすべて空にしますか？")) return;
+  cart = []; lastAdd = null;
+  persistAll(); renderCart();
+  cartMsg.className = "msg";
+  cartMsg.textContent = "カゴを空にしました。";
+});
+
+/* ========= 金額を直す ========= */
+let priceTarget = null;
+function openPriceModal(line){
+  priceTarget = line;
+  $("priceTargetName").textContent = line.name;
+  $("priceNew").value = line.priceEx;
+  $("priceMsg").textContent = "";
+  $("priceModalBg").classList.add("open");
+}
+$("priceCancelBtn").addEventListener("click", () => $("priceModalBg").classList.remove("open"));
+$("priceSaveBtn").addEventListener("click", () => {
+  const v = Number($("priceNew").value);
+  if(!priceTarget || !(v >= 0) || $("priceNew").value === ""){
+    $("priceMsg").textContent = "0以上の金額を入力してください。"; return;
+  }
+  priceTarget.priceEx = Math.floor(v);
+  if(priceTarget.jan && products[priceTarget.jan]){
+    products[priceTarget.jan].priceEx = Math.floor(v);
+    products[priceTarget.jan].updatedAt = Date.now();
+  }
+  $("priceModalBg").classList.remove("open");
+  persistAll(); renderCart(); renderMemo();
+});
+
+/* ========= JAN手入力キーパッド ========= */
+let janBuf = "";
+const janDisplay = $("janDisplay"), janMsg = $("janMsg");
+function renderJanBuf(){ janDisplay.textContent = janBuf ? janBuf : "―"; }
+$("keypad").addEventListener("click", e => {
+  const b = e.target.closest("button[data-k]"); if(!b) return;
+  const k = b.dataset.k;
+  janMsg.textContent = ""; janMsg.className = "msg";
+  if(k === "C"){ janBuf = ""; }
+  else if(k === "BS"){ janBuf = janBuf.slice(0, -1); }
+  else if(janBuf.length < 13){ janBuf += k; }
+  renderJanBuf();
+});
+function handleJAN(code, fromScan){
+  if(!validateJAN(code)){
+    janMsg.className = "msg error";
+    janMsg.textContent = "「" + code + "」は正しいJANコードではありません（桁数またはチェックデジットが違います）。";
+    if(fromScan){ $("scanMsg").className = "msg error"; $("scanMsg").textContent = "読み取ったコード「" + code + "」はJANとして正しくありませんでした。"; }
+    return false;
+  }
+  janMsg.className = "msg"; janMsg.textContent = "";
+  if(products[code]){
+    addToCart(products[code], 1);
+  } else {
+    openRegModal(code, true);
+  }
+  return true;
+}
+$("janGoBtn").addEventListener("click", () => {
+  if(janBuf.length === 0){
+    janMsg.className = "msg error";
+    janMsg.textContent = "JANコードを入力してください。"; return;
+  }
+  if(handleJAN(janBuf, false)){ janBuf = ""; renderJanBuf(); }
+});
+
+/* ========= 初回登録 / 価格メモ編集 ========= */
+let regAddToCart = true;
+function openRegModal(jan, addAfter){
+  regAddToCart = !!addAfter;
+  const p = products[jan];
+  $("regTitle").textContent = p ? "価格メモを編集" : "初回登録（価格メモに保存されます）";
+  $("regJan").value = jan;
+  $("regName").value = p ? p.name : "";
+  $("regPrice").value = p ? p.priceEx : "";
+  $("regTax").value = p ? String(p.tax) : "8";
+  $("regAmt").value = p && p.amount ? p.amount : "";
+  $("regUnit").value = p && p.unit ? p.unit : "g";
+  $("regStore").value = p ? (p.store || "") : "";
+  $("regMsg").textContent = "";
+  $("regSaveBtn").textContent = p ? "保存する" : "保存してカゴへ";
+  $("regModalBg").classList.add("open");
+}
+$("regCancelBtn").addEventListener("click", () => $("regModalBg").classList.remove("open"));
+$("regSaveBtn").addEventListener("click", () => {
+  const jan = $("regJan").value.trim();
+  const name = $("regName").value.trim();
+  const price = Number($("regPrice").value);
+  if(!validateJAN(jan)){ $("regMsg").textContent = "JANコードが正しくありません。"; return; }
+  if(!name){ $("regMsg").textContent = "商品名を入力してください。"; return; }
+  if($("regPrice").value === "" || !(price >= 0)){ $("regMsg").textContent = "税抜価格を入力してください。"; return; }
+  const amt = $("regAmt").value === "" ? null : Number($("regAmt").value);
+  const p = {
+    jan: jan, name: name, priceEx: Math.floor(price),
+    tax: Number($("regTax").value),
+    amount: (amt && amt > 0) ? amt : null,
+    unit: $("regUnit").value,
+    store: $("regStore").value.trim(),
+    updatedAt: Date.now()
+  };
+  products[jan] = p;
+  persistAll(); renderMemo(); renderQuickAdd(); renderCompareSelects(); renderRanking();
+  $("regModalBg").classList.remove("open");
+  if(regAddToCart){ addToCart(p, 1); }
+  else { cartMsg.className = "msg ok"; cartMsg.textContent = "価格メモを保存しました。"; }
+});
+
+/* ========= バーコードなし追加 ========= */
+$("noBarcodeBtn").addEventListener("click", () => {
+  $("nbName").value = ""; $("nbPrice").value = ""; $("nbTax").value = "8"; $("nbMsg").textContent = "";
+  $("nbModalBg").classList.add("open");
+});
+$("nbCancelBtn").addEventListener("click", () => $("nbModalBg").classList.remove("open"));
+$("nbSaveBtn").addEventListener("click", () => {
+  const name = $("nbName").value.trim();
+  const price = Number($("nbPrice").value);
+  if(!name){ $("nbMsg").textContent = "商品名を入力してください。"; return; }
+  if($("nbPrice").value === "" || !(price >= 0)){ $("nbMsg").textContent = "税抜価格を入力してください。"; return; }
+  $("nbModalBg").classList.remove("open");
+  addToCart({jan:null, name:name, priceEx:Math.floor(price), tax:Number($("nbTax").value), amount:null, unit:null, store:""}, 1);
+});
+
+/* ========= カメラスキャン ========= */
+let scanStream = null, scanTimer = null, scanning = false;
+const scanBtn = $("scanBtn"), scanMsg = $("scanMsg"), scanVideo = $("scanVideo");
+async function stopScan(){
+  scanning = false;
+  if(scanTimer){ clearInterval(scanTimer); scanTimer = null; }
+  if(scanStream){ scanStream.getTracks().forEach(t => t.stop()); scanStream = null; }
+  scanVideo.style.display = "none";
+  scanBtn.textContent = "スキャンを始める";
+}
+scanBtn.addEventListener("click", async () => {
+  if(scanning){ await stopScan(); scanMsg.className = "msg"; scanMsg.textContent = "スキャンを止めました。"; return; }
+  scanMsg.className = "msg"; scanMsg.textContent = "";
+  if(!("BarcodeDetector" in window)){
+    scanMsg.className = "msg error";
+    scanMsg.textContent = "このブラウザではバーコード読み取り（BarcodeDetector）に未対応のため、カメラスキャンは使えません。下の「JANコードを手入力」をご利用ください。（iPhoneのSafariでは読み取れない場合があります）";
+    return;
+  }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    scanMsg.className = "msg error";
+    scanMsg.textContent = "この環境ではカメラが使えません。下の「JANコードを手入力」をご利用ください。";
+    return;
+  }
+  let detector;
+  try{
+    detector = new BarcodeDetector({formats: ["ean_13", "ean_8"]});
+    scanStream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}});
+  }catch(e){
+    scanMsg.className = "msg error";
+    scanMsg.textContent = "カメラを起動できませんでした。許可の状態をご確認ください。使えない場合は「JANコードを手入力」をご利用ください。";
+    return;
+  }
+  scanVideo.srcObject = scanStream;
+  scanVideo.style.display = "block";
+  try{ await scanVideo.play(); }catch(e){}
+  scanning = true;
+  scanBtn.textContent = "スキャンを止める";
+  scanMsg.className = "msg";
+  scanMsg.textContent = "バーコードをカメラに映してください。";
+  let busy = false, lastCode = "", lastAt = 0;
+  scanTimer = setInterval(async () => {
+    if(busy || !scanning) return;
+    busy = true;
+    try{
+      const codes = await detector.detect(scanVideo);
+      if(codes && codes.length){
+        const raw = codes[0].rawValue || "";
+        const now = Date.now();
+        if(raw && (raw !== lastCode || now - lastAt > 2500)){
+          lastCode = raw; lastAt = now;
+          if(handleJAN(raw, true) && navigator.vibrate && (!navigator.userActivation || navigator.userActivation.hasBeenActive)){ try{ navigator.vibrate(60); }catch(e){} }
+        }
+      }
+    }catch(e){}
+    busy = false;
+  }, 350);
+});
+
+/* ========= 予算 ========= */
+$("budgetPresets").addEventListener("click", e => {
+  const b = e.target.closest("button[data-budget]"); if(!b) return;
+  budget = Number(b.dataset.budget);
+  persistAll(); renderHeader();
+});
+$("budgetSetBtn").addEventListener("click", () => {
+  const v = Number($("budgetInput").value);
+  if($("budgetInput").value === "" || !(v > 0)) return;
+  budget = Math.floor(v);
+  persistAll(); renderHeader();
+});
+$("budgetClearBtn").addEventListener("click", () => {
+  budget = null; $("budgetInput").value = "";
+  persistAll(); renderHeader();
+});
+
+/* ========= 買い物リスト ========= */
+const shopListEl = $("shopList"), listMsg = $("listMsg");
+function renderList(){
+  if(shopList.length === 0){
+    shopListEl.innerHTML = "<div class='empty-note'>リストは空です。買うものを追加してください。</div>";
+  } else {
+    shopListEl.innerHTML = shopList.map(item =>
+      "<div class='list-item" + (item.checked ? " checked" : "") + "' data-id='" + item.id + "'>" +
+      "<input type='checkbox' data-lact='toggle'" + (item.checked ? " checked" : "") + ">" +
+      "<span class='li-name2'>" + esc(item.name) + (item.jan ? " <small style='color:var(--sub)'>JAN " + esc(item.jan) + "</small>" : "") + "</span>" +
+      "<button class='small-btn' data-lact='del'>削除</button></div>"
+    ).join("");
+  }
+}
+shopListEl.addEventListener("change", e => {
+  const cb = e.target.closest("input[data-lact='toggle']"); if(!cb) return;
+  const item = shopList.find(i => String(i.id) === e.target.closest(".list-item").dataset.id);
+  if(item){ item.checked = cb.checked; persistAll(); renderList(); }
+});
+shopListEl.addEventListener("click", e => {
+  const b = e.target.closest("button[data-lact='del']"); if(!b) return;
+  const id = e.target.closest(".list-item").dataset.id;
+  shopList = shopList.filter(i => String(i.id) !== id);
+  persistAll(); renderList();
+});
+$("listAddBtn").addEventListener("click", () => {
+  const name = $("listInput").value.trim();
+  if(!name) return;
+  shopList.push({id: nextId(), name: name, jan: null, checked: false});
+  $("listInput").value = "";
+  persistAll(); renderList();
+});
+$("listCleanupBtn").addEventListener("click", () => {
+  const n = shopList.filter(i => i.checked).length;
+  shopList = shopList.filter(i => !i.checked);
+  persistAll(); renderList();
+  listMsg.className = "msg";
+  listMsg.textContent = n ? "買えたもの " + n + " 件を片付けました。" : "チェック済みの項目はありません。";
+});
+function renderQuickAdd(){
+  const arr = Object.values(products).sort((a,b) => b.updatedAt - a.updatedAt).slice(0, 12);
+  if(arr.length === 0){
+    $("quickAdd").innerHTML = "<span class='scan-note'>価格メモに登録すると、ここからすぐリストに入れられます。</span>";
+    return;
+  }
+  $("quickAdd").innerHTML = arr.map(p =>
+    "<button class='chip' data-jan='" + esc(p.jan) + "'>＋ " + esc(p.name) + "</button>"
+  ).join("");
+}
+$("quickAdd").addEventListener("click", e => {
+  const b = e.target.closest("button[data-jan]"); if(!b) return;
+  const p = products[b.dataset.jan]; if(!p) return;
+  shopList.push({id: nextId(), name: p.name, jan: p.jan, checked: false});
+  persistAll(); renderList();
+  listMsg.className = "msg ok";
+  listMsg.textContent = "「" + p.name + "」をリストに追加しました。";
+});
+
+/* ========= 価格メモ ========= */
+const memoListEl = $("memoList");
+function renderMemo(){
+  const q = ($("memoSearch").value || "").trim().toLowerCase();
+  let arr = Object.values(products).sort((a,b) => b.updatedAt - a.updatedAt);
+  if(q) arr = arr.filter(p => p.name.toLowerCase().includes(q) || p.jan.includes(q));
+  if(arr.length === 0){
+    memoListEl.innerHTML = "<div class='empty-note'>" + (q ? "見つかりませんでした。" : "まだ登録がありません。カゴ画面でJANを入力すると、初めての商品を登録できます。") + "</div>";
+    return;
+  }
+  memoListEl.innerHTML = arr.map(p => {
+    const meta = ["JAN " + esc(p.jan), "税抜" + fmt(p.priceEx) + "円 → 税込" + fmt(inclUnit(p)) + "円（" + p.tax + "%）",
+      (p.amount ? p.amount + esc(p.unit || "") : null), p.store ? esc(p.store) : null].filter(Boolean).join(" ・ ");
+    return "<div class='memo-item' data-jan='" + esc(p.jan) + "'>" +
+      "<div class='li-top'><div><div class='li-name'>" + esc(p.name) + "</div>" +
+      "<div class='li-meta'>" + meta + "</div></div></div>" +
+      "<div class='li-actions'>" +
+        "<button class='small-btn' data-mact='add'>🧺 カゴへ</button>" +
+        "<button class='small-btn' data-mact='edit'>編集</button>" +
+        "<button class='small-btn' data-mact='del'>削除</button>" +
+      "</div></div>";
+  }).join("");
+}
+$("memoSearch").addEventListener("input", renderMemo);
+memoListEl.addEventListener("click", e => {
+  const b = e.target.closest("button[data-mact]"); if(!b) return;
+  const jan = e.target.closest(".memo-item").dataset.jan;
+  const p = products[jan]; if(!p) return;
+  if(b.dataset.mact === "add"){ addToCart(p, 1); switchTab("cart"); }
+  if(b.dataset.mact === "edit"){ openRegModal(jan, false); }
+  if(b.dataset.mact === "del"){
+    if(confirm("価格メモから「" + p.name + "」を削除しますか？")){ delete products[jan]; persistAll(); renderMemo(); renderQuickAdd(); renderCompareSelects(); renderRanking(); }
+  }
+});
+
+/* ========= 単価くらべ ========= */
+function fillCompareSelect(sel){
+  const arr = Object.values(products).sort((a,b) => b.updatedAt - a.updatedAt);
+  sel.innerHTML = "<option value=''>（手入力）</option>" + arr.map(p =>
+    "<option value='" + esc(p.jan) + "'>" + esc(p.name) + "</option>").join("");
+}
+function renderCompareSelects(){ fillCompareSelect($("vsSelA")); fillCompareSelect($("vsSelB")); }
+function vsFromMemo(which){
+  const sel = $("vsSel" + which);
+  const p = sel.value ? products[sel.value] : null;
+  if(p){
+    $("vsPrice" + which).value = inclUnit(p);
+    if(p.amount){ $("vsAmt" + which).value = p.amount; }
+    if(p.unit){ $("vsUnit" + which).value = p.unit; }
+  }
+  renderCompare();
+}
+$("vsSelA").addEventListener("change", () => vsFromMemo("A"));
+$("vsSelB").addEventListener("change", () => vsFromMemo("B"));
+function vsValues(which){
+  const price = Number($("vsPrice" + which).value);
+  const amt = Number($("vsAmt" + which).value);
+  const unit = $("vsUnit" + which).value;
+  if(!(price > 0) || !(amt > 0)) return null;
+  return {price: price, amt: amt, unit: unit, up: unitPricePer(price, amt, unit)};
+}
+function renderCompare(){
+  const a = vsValues("A"), b = vsValues("B");
+  const label = u => (u === "個") ? "1個あたり" : ("100" + u + "あたり");
+  $("vsUnitPriceA").textContent = a ? label(a.unit) + " " + a.up.toFixed(1) + "円" : "―";
+  $("vsUnitPriceB").textContent = b ? label(b.unit) + " " + b.up.toFixed(1) + "円" : "―";
+  $("vsBoxA").classList.remove("winner"); $("vsBoxB").classList.remove("winner");
+  const res = $("vsResult");
+  if(a && b){
+    if(a.unit !== b.unit){
+      res.className = "msg error";
+      res.textContent = "単位が違うため比べられません（g／ml／個をそろえてください）。";
+      return;
+    }
+    res.className = "msg ok";
+    if(Math.abs(a.up - b.up) < 0.001){
+      res.textContent = "どちらも同じ単価です。";
+    } else {
+      const winIsA = a.up < b.up;
+      const hi = winIsA ? b.up : a.up, lo = winIsA ? a.up : b.up;
+      const diff = ((hi - lo) / lo * 100).toFixed(1);
+      res.textContent = (winIsA ? "A" : "B") + " の方がお得です（単価差 約" + diff + "%）。";
+      $(winIsA ? "vsBoxA" : "vsBoxB").classList.add("winner");
+    }
+  } else {
+    res.className = "msg";
+    res.textContent = a || b ? "もう一方も入力すると比べられます。" : "";
+  }
+}
+["vsPriceA","vsAmtA","vsUnitA","vsPriceB","vsAmtB","vsUnitB"].forEach(id => {
+  $(id).addEventListener("input", renderCompare);
+  $(id).addEventListener("change", renderCompare);
+});
+function renderRanking(){
+  const arr = Object.values(products).filter(p => p.amount && p.amount > 0);
+  if(arr.length === 0){
+    $("rankList").innerHTML = "<span class='scan-note'>内容量を登録した商品が、単位ごとに安い順に並びます。</span>";
+    return;
+  }
+  const groups = {};
+  for(const p of arr){
+    const u = p.unit || "g";
+    if(!groups[u]) groups[u] = [];
+    groups[u].push({p: p, up: unitPricePer(inclUnit(p), p.amount, u)});
+  }
+  const label = u => (u === "個") ? "1個あたり" : ("100" + u + "あたり");
+  $("rankList").innerHTML = Object.keys(groups).map(u =>
+    "<div style='font-weight:700;margin-top:6px;'>単位：" + esc(u) + "（" + label(u) + "）</div>" +
+    groups[u].sort((x,y) => x.up - y.up).map(r =>
+      "<div class='rank-row'><span>" + esc(r.p.name) + "</span><b>" + r.up.toFixed(1) + "円</b></div>"
+    ).join("")
+  ).join("");
+}
+
+/* ========= タブ ========= */
+function switchTab(name){
+  document.querySelectorAll("section.tab").forEach(s => s.classList.toggle("active", s.id === "tab-" + name));
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  if(name !== "cart"){ stopScan(); }
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll("nav.tabs button").forEach(b => {
+  b.addEventListener("click", () => switchTab(b.dataset.tab));
+});
+
+/* ========= 初期描画 ========= */
+renderJanBuf();
+renderCart();
+renderList();
+renderQuickAdd();
+renderMemo();
+renderCompareSelects();
+renderCompare();
+renderRanking();
+renderHeader();
+</script>
+</body>
+</html>
